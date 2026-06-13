@@ -10,6 +10,7 @@ import threading
 import time
 import webbrowser
 from datetime import datetime
+import xml.etree.ElementTree as ET
 
 # ========== 新闻源配置 ==========
 NEWS_SOURCES = {
@@ -18,10 +19,15 @@ NEWS_SOURCES = {
         "detail_url": "https://hacker-news.firebaseio.com/v0/item/{}.json",
         "parse": "hackernews",
     },
-    "Reddit 科技": {
-        "url": "https://www.reddit.com/r/technology/hot.json?limit=20",
+    "科技资讯": {
+        "url": "rss",
         "detail_url": None,
-        "parse": "reddit",
+        "parse": "rss",
+        "feeds": [
+            "https://techcrunch.com/feed/",
+            "https://www.theverge.com/rss/index.xml",
+            "https://www.engadget.com/rss.xml",
+        ],
     },
     "GitHub Trending": {
         "url": "https://api.github.com/search/repositories?q=stars:>1000&sort=stars&order=desc&per_page=20",
@@ -231,21 +237,60 @@ class NewsReaderApp:
                         "time": datetime.fromtimestamp(d.get("created_utc", 0)).strftime("%H:%M"),
                     })
 
-            elif config["parse"] in ("github", "github_recent"):
+            elif config["parse"] == "rss":
+                feeds = config.get("feeds", [])
+                all_items = []
+                for feed_url in feeds:
+                    try:
+                        fr = requests.get(feed_url, headers={"User-Agent": "NewsReader/1.0"}, timeout=10)
+                        fr.raise_for_status()
+                        root = ET.fromstring(fr.content)
+                        channel_title = root.find("channel/title")
+                        ch_name = channel_title.text if channel_title is not None else ""
+                        for entry in root.findall(".//item") + root.findall(".//entry"):
+                            title = entry.find("title")
+                            link = entry.find("link")
+                            pub = entry.find("pubDate") or entry.find("published") or entry.find("updated")
+                            desc = entry.find("description") or entry.find("summary") or entry.find("content")
+                            title_text = title.text.strip() if title is not None and title.text else ""
+                            link_text = link.text.strip() if link is not None and link.text else (
+                                link.get("href", "") if link is not None else ""
+                            )
+                            pub_text = pub.text[:16] if pub is not None and pub.text else ""
+                            desc_text = desc.text[:120] if desc is not None and desc.text else ""
+                            if title_text:
+                                all_items.append({
+                                    "title": title_text,
+                                    "url": link_text,
+                                    "meta": f"📡 {ch_name}{(' — ' + desc_text) if desc_text else ''}",
+                                    "time": pub_text,
+                                })
+                    except Exception:
+                        pass
+                items = all_items[:25]
+
+            elif config["parse"] == "github":
                 repos = data.get("items", [])
                 for r in repos[:25]:
                     desc = r.get("description") or ""
-                    if config["parse"] == "github":
-                        updated = r.get("updated_at") or ""
-                        time_str = updated[11:16] if updated else ""
-                    else:
-                        created = r.get("created_at") or ""
-                        time_str = created[11:16] if created else ""
+                    updated = r.get("updated_at") or ""
                     items.append({
                         "title": f"{r.get('full_name', '')} — {desc[:80]}",
                         "url": r.get("html_url", ""),
                         "meta": f"⭐ {r.get('stargazers_count', 0)} · 🍴 {r.get('forks_count', 0)} · {r.get('language', 'N/A')}",
-                        "time": time_str,
+                        "time": updated[11:16] if updated else "",
+                    })
+
+            elif config["parse"] == "github_recent":
+                repos = data.get("items", [])
+                for r in repos[:25]:
+                    desc = r.get("description") or ""
+                    created = r.get("created_at") or ""
+                    items.append({
+                        "title": f"{r.get('full_name', '')} — {desc[:80]}",
+                        "url": r.get("html_url", ""),
+                        "meta": f"⭐ {r.get('stargazers_count', 0)} · 🍴 {r.get('forks_count', 0)} · {r.get('language', 'N/A')}",
+                        "time": created[11:16] if created else "",
                     })
 
         except Exception as e:
