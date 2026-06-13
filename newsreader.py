@@ -234,11 +234,18 @@ class NewsReaderApp:
             elif config["parse"] in ("github", "github_recent"):
                 repos = data.get("items", [])
                 for r in repos[:25]:
+                    desc = r.get("description") or ""
+                    if config["parse"] == "github":
+                        updated = r.get("updated_at") or ""
+                        time_str = updated[11:16] if updated else ""
+                    else:
+                        created = r.get("created_at") or ""
+                        time_str = created[11:16] if created else ""
                     items.append({
-                        "title": f"{r.get('full_name', '')} — {r.get('description', '')[:80]}",
+                        "title": f"{r.get('full_name', '')} — {desc[:80]}",
                         "url": r.get("html_url", ""),
                         "meta": f"⭐ {r.get('stargazers_count', 0)} · 🍴 {r.get('forks_count', 0)} · {r.get('language', 'N/A')}",
-                        "time": r.get("updated_at", "")[11:16] if r.get("updated_at") else "",
+                        "time": time_str,
                     })
 
         except Exception as e:
