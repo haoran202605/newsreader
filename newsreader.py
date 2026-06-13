@@ -34,7 +34,20 @@ NEWS_SOURCES = {
         "detail_url": None,
         "parse": "github",
     },
-    "Product Hunt": {
+    "国际媒体": {
+        "url": "rss",
+        "detail_url": None,
+        "parse": "rss",
+        "feeds": [
+            "https://feeds.bbci.co.uk/news/world/rss.xml",
+            "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+            "https://www.theguardian.com/world/rss",
+            "https://www.aljazeera.com/xml/rss/all.xml",
+            "http://rss.cnn.com/rss/edition_world.rss",
+            "https://www.france24.com/en/rss",
+        ],
+    },
+    "GitHub 新项目": {
         "url": "https://api.github.com/search/repositories?q=created:>2026-06-01&sort=stars&order=desc&per_page=20",
         "detail_url": None,
         "parse": "github_recent",
